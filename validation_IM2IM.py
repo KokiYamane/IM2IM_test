@@ -47,8 +47,8 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print('device:', device)
 
-    # folder = 'model/20210723_214631'
-    folder = 'model_param/20210803_203023'
+    # folder = 'model_param/20210803_205117'
+    folder = 'model_param/20210804_202522'
     ModelDirName = '{}/model_param_best.pt'.format(folder)
     # ModelDirName = '{}/model_param/model_param_003000.pt'.format(folder)
     # ModelDirName = 'model/model_param/model_param_000600.pt'
@@ -129,6 +129,7 @@ def main():
                 state = torch.from_numpy(state.astype(np.float32)).to(device)
                 image = torch.from_numpy(image.astype(np.float32)).to(device)
 
+                # state_hat, image_hat, (h, c) = model(state, image, (h, c))
                 state_hat, image_hat, _, _, (h, c) = model(state, image, (h, c))
 
                 print(h, c)
@@ -137,8 +138,11 @@ def main():
                 state_hat = state_hat * std + mean
                 print('state_hat:', state_hat)
 
+                image = image.cpu().detach().numpy()[0, 0]
+                image = image.transpose(1, 2, 0)
                 image_hat = image_hat.cpu().detach().numpy()[0, 0]
                 image_hat = image_hat.transpose(1, 2, 0)
+                image_hat = np.concatenate([image, image_hat], axis=1)
                 image_hat_pil = Image.fromarray((225 * image_hat).astype(np.uint8), mode=None)
 
                 os.makedirs('../repro/video_pred0/', exist_ok=True)
@@ -152,9 +156,10 @@ def main():
                 sock.send(msg)
                 print('msg:', msg)
         
-    except:
-        for sock in readfds:
-            sock.close()
+    # except:
+    #     print('error')
+    #     for sock in readfds:
+    #         sock.close()
 
     finally:
         for sock in readfds:
