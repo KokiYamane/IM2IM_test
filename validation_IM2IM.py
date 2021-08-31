@@ -47,13 +47,18 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print('device:', device)
 
-    # folder = 'model_param/20210803_205117'
-    folder = 'model_param/20210804_202522'
-    ModelDirName = '{}/model_param_best.pt'.format(folder)
-    # ModelDirName = '{}/model_param/model_param_003000.pt'.format(folder)
+    # folder = 'model_param/20210808_194702'
+    folder = 'model_param/20210808_235751'
+    # ModelDirName = '{}/model_param_best.pt'.format(folder)
+    ModelDirName = '{}/model_param/model_param_{:06}.pt'.format(folder, 1500)
     # ModelDirName = 'model/model_param/model_param_000600.pt'
-    # model = IM2IM(state_dim=18, image_feature_dim=15)
-    model = SPAN(state_dim=18, image_feature_dim=15)
+    model = IM2IM(
+        state_dim=9,
+        image_feature_dim=15,
+        LSTM_dim=200,
+        LSTM_layer_num=5,
+    )
+    # model = SPAN(state_dim=18, image_feature_dim=15)
     state_dict = torch.load(ModelDirName, map_location=torch.device(device))
     from collections import OrderedDict
     new_state_dict = OrderedDict()
@@ -111,7 +116,8 @@ def main():
                 print(msg)
                 data = np.fromstring(msg, dtype=np.float32 , sep=' ')
                 state_dim = 9
-                state = np.tile(data[:state_dim], 2)
+                state = data[:state_dim]
+                # state = np.tile(data[:state_dim], 2)
                 print('state shape:', state.shape)
                 # image = None
                 # while image == None:
@@ -123,14 +129,14 @@ def main():
                 state = (state - mean) / std
                 state = state[np.newaxis, np.newaxis, :]
 
-                image = imageNormalizaion(image)
+                # image = imageNormalizaion(image)
                 image = image[np.newaxis, np.newaxis, :, :, :]
 
                 state = torch.from_numpy(state.astype(np.float32)).to(device)
                 image = torch.from_numpy(image.astype(np.float32)).to(device)
 
-                # state_hat, image_hat, (h, c) = model(state, image, (h, c))
-                state_hat, image_hat, _, _, (h, c) = model(state, image, (h, c))
+                state_hat, image_hat, (h, c) = model(state, image, (h, c))
+                # state_hat, image_hat, _, _, (h, c) = model(state, image, (h, c))
 
                 print(h, c)
 

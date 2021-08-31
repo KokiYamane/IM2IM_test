@@ -27,23 +27,20 @@ class InvertedResidual(nn.Module):
     def forward(self, x):
         return self.invertedResidual(x)
 
-
 class Encoder(nn.Module):
     def __init__(self, image_feature_dim):
         super().__init__()
 
         self.encoder = nn.Sequential(
             nn.Dropout(0.01),
-            InvertedResidual(3, 32, kernel_size=3, stride=1, padding=0, expand_ratio=6),  # 64 -> 62
-            # InvertedResidual(16, 32, kernel_size=5, stride=2, padding=0, expand_ratio=6),  # 128 -> 62
-            InvertedResidual(32, 64, kernel_size=5, stride=2, padding=0, expand_ratio=6),  # 62 -> 29
-            InvertedResidual(64, 128, kernel_size=5, stride=2, padding=0, expand_ratio=6),  # 29 -> 13
-            InvertedResidual(128, 256, kernel_size=5, stride=2, padding=0, expand_ratio=6),  # 13 -> 5
-            InvertedResidual(256, 512, kernel_size=5, stride=2, padding=0, expand_ratio=6),  # 5 -> 1
-            nn.Flatten(),
-            nn.Linear(512, 256),
+            nn.Conv2d(3, 16, kernel_size=7, stride=2, padding=3),  # 64 -> 32
             nn.ReLU(),
-            nn.Linear(256, image_feature_dim),
+            nn.Conv2d(16, 32, kernel_size=5, stride=2, padding=2),  # 32 -> 16
+            nn.ReLU(),
+            # InvertedResidual(3, 16, kernel_size=7, stride=2, padding=3),  # 64 -> 32
+            # InvertedResidual(16, 32, kernel_size=5, stride=2, padding=2),  # 32 -> 16
+            nn.Flatten(),
+            nn.Linear(32 * 16 ** 2, image_feature_dim),
         )
 
     def forward(self, x):
@@ -55,29 +52,20 @@ class Decoder(nn.Module):
         super().__init__()
 
         self.fully_connected = nn.Sequential(
-            nn.Linear(image_feature_dim, 256),
-            nn.ReLU(),
-            # nn.Linear(256, 256 * 8 ** 2),
-            nn.Linear(256, 128 * 8 ** 2),
+            nn.Linear(image_feature_dim, 32 * 16 ** 2),
             nn.ReLU(),
         )
 
         self.deconvolution = nn.Sequential(
-            # nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2),  # 8 -> 16
-            # nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2),  # 16 -> 32
+            nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2),  # 16 -> 32
             nn.ReLU(),
-            nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2),  # 32 -> 64
-            nn.ReLU(),
-            nn.ConvTranspose2d(32, 3, kernel_size=2, stride=2),  # 64 -> 128
+            nn.ConvTranspose2d(16, 3, kernel_size=2, stride=2),  # 32 -> 64
             nn.Sigmoid(),
         )
 
     def forward(self, feature):
         x = self.fully_connected(feature)
-        batch_size, _ = x.shape
-        # x = x.reshape(batch_size, 256, 8, 8)
-        x = x.reshape(batch_size, 128, 8, 8)
+        x = x.reshape(x.shape[0], 32, 16, 16)
         y = self.deconvolution(x)
         return y
 
