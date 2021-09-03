@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torchvision import transforms
 import socket
 import select
 import sys
@@ -13,21 +14,18 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-def crop_center(pil_img, crop_width, crop_height):
-    img_width, img_height = pil_img.size
-    return pil_img.crop(((img_width - crop_width) // 2,
-                        (img_height - crop_height) // 2,
-                        (img_width + crop_width) // 2,
-                        (img_height + crop_height) // 2))
+def load_image(image_path, image_size=64):
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize(image_size),
+        transforms.CenterCrop(image_size),
+    ])
 
-
-def load_image(image_path):
     if not os.path.exists(image_path):
         return
     image = Image.open(image_path)
-    image = crop_center(image, min(image.size), min(image.size))
-    image = image.resize((64, 64))
-    return np.array(image)
+    image = transform(image)
+    return image
 
 
 def imageNormalizaion(image):
@@ -42,6 +40,17 @@ def imageNormalizaion(image):
     return image
 
 
+def load_model_param(filepath, device='cpu'):
+    state_dict = torch.load(filepath, map_location=device)
+    from collections import OrderedDict
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        if 'module' in k:
+            k = k.replace('module.', '')
+        new_state_dict[k] = v
+    return new_state_dict
+
+
 def main():
     # pytorch device setting
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -52,23 +61,23 @@ def main():
     # ModelDirName = '{}/model_param_best.pt'.format(folder)
     ModelDirName = '{}/model_param/model_param_{:06}.pt'.format(folder, 1500)
     # ModelDirName = 'model/model_param/model_param_000600.pt'
-    model = IM2IM(
+    # model = IM2IM(
+    #     state_dim=9,
+    #     image_feature_dim=15,
+    #     LSTM_dim=200,
+    #     LSTM_layer_num=5,
+    # )
+    model = SPAN(
         state_dim=9,
         image_feature_dim=15,
         LSTM_dim=200,
         LSTM_layer_num=5,
     )
-    # model = SPAN(state_dim=18, image_feature_dim=15)
-    state_dict = torch.load(ModelDirName, map_location=torch.device(device))
-    from collections import OrderedDict
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        if 'module' in k:
-            k = k.replace('module.', '')
-        new_state_dict[k] = v
-    model.load_state_dict(new_state_dict)
-    model.to(device)
+    state_dict = load_model_param('./model_param/SPAN_param.pt')
+    model.load_state_dict(state_dict, device)
     model.eval()
+    model.to(device)
+
     h = torch.zeros((model.LSTM_layer_num, 1, model.LSTM_dim)).to(device)
     c = torch.zeros((model.LSTM_layer_num, 1, model.LSTM_dim)).to(device)
 
@@ -122,21 +131,22 @@ def main():
                 # image = None
                 # while image == None:
                 image = load_image('../repro/video_rgb0/rgb{:.3f}.jpg'.format(data[state_dim]))
-                image = image.transpose(2, 0, 1) / 256
                 print('image shape:', image.shape)
 
                 # prediction
                 state = (state - mean) / std
-                state = state[np.newaxis, np.newaxis, :]
-
-                # image = imageNormalizaion(image)
-                image = image[np.newaxis, np.newaxis, :, :, :]
 
                 state = torch.from_numpy(state.astype(np.float32)).to(device)
-                image = torch.from_numpy(image.astype(np.float32)).to(device)
+                image = image.to(device)
 
-                state_hat, image_hat, (h, c) = model(state, image, (h, c))
-                # state_hat, image_hat, _, _, (h, c) = model(state, image, (h, c))
+                state = state.unsqueeze(0).unsqueeze(0)
+                image = image.unsqueeze(0).unsqueeze(0)
+
+                print('state shape:', state.shape)
+                print('image shape:', image.shape)
+
+                # state_hat, image_hat, (h, c) = model(state, image, (h, c))
+                state_hat, image_hat, _, _, (h, c) = model(state, image, (h, c))
 
                 print(h, c)
 
@@ -144,9 +154,9 @@ def main():
                 state_hat = state_hat * std + mean
                 print('state_hat:', state_hat)
 
-                image = image.cpu().detach().numpy()[0, 0]
+                image = image.squeeze().cpu().detach().numpy()
                 image = image.transpose(1, 2, 0)
-                image_hat = image_hat.cpu().detach().numpy()[0, 0]
+                image_hat = image_hat.squeeze().cpu().detach().numpy()
                 image_hat = image_hat.transpose(1, 2, 0)
                 image_hat = np.concatenate([image, image_hat], axis=1)
                 image_hat_pil = Image.fromarray((225 * image_hat).astype(np.uint8), mode=None)
