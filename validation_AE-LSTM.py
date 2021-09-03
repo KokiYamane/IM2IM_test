@@ -13,7 +13,8 @@ sys.path.append('.')
 sys.path.append('..')
 from model.IM2IM import IM2IM
 from model.SPAN import SPAN
-from model.VAE import VAE
+# from model.VAE import VAE
+from model.SpatialAE import SpatialAE
 from model.LSTMBlock import LSTMBlock 
 
 
@@ -54,17 +55,23 @@ def main():
     # ModelDirName = 'model/model_param/model_param_000600.pt'
 
 
-    image_feature_dim = 5
-    image_size = 32
+    image_feature_dim = 32
+    image_size = 64
     state_dim = 9
     # encoder = Encoder(image_feature_dim)
     # state_dict = load_model_param('./model_param/encoder_param_best.pt')
-    vae = VAE(image_feature_dim, image_size=image_size, n_channel=3)
-    state_dict = load_model_param('./model_param/VAE_param.pt')
-    vae.load_state_dict(state_dict, device)
-    vae.eval()
-    vae.to(device)
-    encoder = vae.encode
+    # vae = VAE(image_feature_dim, image_size=image_size, n_channel=3)
+    # state_dict = load_model_param('./model_param/VAE_param.pt')
+    # vae.load_state_dict(state_dict, device)
+    # vae.eval()
+    # vae.to(device)
+    # encoder = vae.encode
+    spatialAE = SpatialAE()
+    state_dict = load_model_param('./model_param/SpatialAE_param.pt')
+    spatialAE.load_state_dict(state_dict, device)
+    spatialAE.eval()
+    spatialAE.to(device)
+    encoder = spatialAE.encoder
 
     lstm = LSTMBlock(
         input_dim=state_dim+image_feature_dim,
@@ -72,7 +79,7 @@ def main():
         LSTM_dim=100,
         LSTM_layer_num=1,
     )
-    state_dict = load_model_param('./model_param/LSTM_param.pt')
+    state_dict = load_model_param('./model_param/LSTM_SpatialAE_param.pt')
     lstm.load_state_dict(state_dict, device)
     lstm.eval()
     lstm.to(device)
