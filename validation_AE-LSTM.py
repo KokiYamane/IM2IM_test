@@ -15,7 +15,8 @@ from model.IM2IM import IM2IM
 from model.SPAN import SPAN
 # from model.VAE import VAE
 from model.SpatialAE import SpatialAE
-from model.LSTMBlock import LSTMBlock 
+from model.LSTMBlock import LSTMBlock
+from model.AutoEncoder import AutoEncoder
 
 
 def load_image(image_path, image_size=64):
@@ -55,23 +56,31 @@ def main():
     # ModelDirName = 'model/model_param/model_param_000600.pt'
 
 
-    image_feature_dim = 32
+    image_feature_dim = 10
     image_size = 64
     state_dim = 9
-    # encoder = Encoder(image_feature_dim)
-    # state_dict = load_model_param('./model_param/encoder_param_best.pt')
+
+    auto_encoder = AutoEncoder(
+        z_dim=image_feature_dim, image_size=image_size, n_channel=3)
+    state_dict = load_model_param('./model_param/AE_param.pt')
+    auto_encoder.load_state_dict(state_dict)
+    auto_encoder.to(device)
+    encoder = auto_encoder.encoder
+    decoder = auto_encoder.decoder
+    encoder.eval()
+    decoder.eval()
     # vae = VAE(image_feature_dim, image_size=image_size, n_channel=3)
     # state_dict = load_model_param('./model_param/VAE_param.pt')
     # vae.load_state_dict(state_dict, device)
     # vae.eval()
     # vae.to(device)
     # encoder = vae.encode
-    spatialAE = SpatialAE()
-    state_dict = load_model_param('./model_param/SpatialAE_param.pt')
-    spatialAE.load_state_dict(state_dict, device)
-    spatialAE.eval()
-    spatialAE.to(device)
-    encoder = spatialAE.encoder
+    # spatialAE = SpatialAE()
+    # state_dict = load_model_param('./model_param/SpatialAE_param.pt')
+    # spatialAE.load_state_dict(state_dict, device)
+    # spatialAE.eval()
+    # spatialAE.to(device)
+    # encoder = spatialAE.encoder
 
     lstm = LSTMBlock(
         input_dim=state_dim+image_feature_dim,
@@ -79,7 +88,7 @@ def main():
         LSTM_dim=100,
         LSTM_layer_num=1,
     )
-    state_dict = load_model_param('./model_param/LSTM_SpatialAE_param.pt')
+    state_dict = load_model_param('./model_param/LSTM_param.pt')
     lstm.load_state_dict(state_dict, device)
     lstm.eval()
     lstm.to(device)
@@ -132,7 +141,7 @@ def main():
                 data = np.fromstring(msg, dtype=np.float32 , sep=' ')
                 state_dim = 9
                 state = data[:state_dim]
-                image = load_image('../repro/video_rgb0/rgb{:.3f}.jpg'.format(data[state_dim]), image_size=32)
+                image = load_image('../repro/video_rgb0/rgb{:.3f}.jpg'.format(data[state_dim]), image_size=image_size)
 
                 # prediction
                 state = (state - mean) / std
@@ -149,7 +158,7 @@ def main():
                 image_feature = encoder(image)
                 state = torch.cat([state, image_feature.unsqueeze(0)], dim=2)
                 state_hat, (h, c) = lstm(state, (h, c))
-                image_hat = vae.decoder(image_feature, image_size=32)
+                image_hat = decoder(image_feature, image_size=image_size)
 
                 print(h, c)
 

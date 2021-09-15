@@ -61,19 +61,20 @@ def main():
     # ModelDirName = '{}/model_param_best.pt'.format(folder)
     ModelDirName = '{}/model_param/model_param_{:06}.pt'.format(folder, 1500)
     # ModelDirName = 'model/model_param/model_param_000600.pt'
-    # model = IM2IM(
-    #     state_dim=9,
-    #     image_feature_dim=15,
-    #     LSTM_dim=200,
-    #     LSTM_layer_num=5,
-    # )
-    model = SPAN(
+    model = IM2IM(
         state_dim=9,
         image_feature_dim=15,
         LSTM_dim=200,
         LSTM_layer_num=5,
     )
-    state_dict = load_model_param('./model_param/SPAN_param.pt')
+    state_dict = load_model_param('./model_param/IM2IM_param.pt')
+    # model = SPAN(
+    #     state_dim=9,
+    #     image_feature_dim=15,
+    #     LSTM_dim=200,
+    #     LSTM_layer_num=5,
+    # )
+    # state_dict = load_model_param('./model_param/SPAN_param.pt')
     model.load_state_dict(state_dict, device)
     model.eval()
     model.to(device)
@@ -145,8 +146,8 @@ def main():
                 print('state shape:', state.shape)
                 print('image shape:', image.shape)
 
-                # state_hat, image_hat, (h, c) = model(state, image, (h, c))
-                state_hat, image_hat, _, _, (h, c) = model(state, image, (h, c))
+                state_hat, image_hat, (h, c) = model(state, image, (h, c))
+                # state_hat, image_hat, _, _, (h, c) = model(state, image, (h, c))
 
                 print(h, c)
 

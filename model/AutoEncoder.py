@@ -1,4 +1,3 @@
-
 import torch
 from torch import nn
 from model.InvertedResidual import InvertedResidual
@@ -34,31 +33,6 @@ class Encoder(nn.Module):
         x = self.conv(x)
         image_feature = self.dense(x)
         return image_feature
-
-
-# class Decoder(nn.Module):
-#     def __init__(self, z_dim, image_size, channels):
-#         super().__init__()
-
-#         self.channels = channels
-
-#         self.feature_size = image_size // 2**(len(channels)-1)
-#         feature_dim = channels[-1] * self.feature_size ** 2
-
-#         self.dense = nn.Linear(z_dim, feature_dim)
-
-#         deconv_list = []
-#         for i in reversed(range(1, len(channels))):
-#             deconv_list.append(nn.ReLU())
-#             deconv_list.append(nn.ConvTranspose2d(channels[i], channels[i-1], kernel_size=4, stride=2, padding=1))
-#         deconv_list.append(nn.Sigmoid())
-#         self.deconv = nn.Sequential(*deconv_list)
-
-#     def forward(self, z):
-#         x = self.dense(z)
-#         x = x.reshape(x.shape[0], self.channels[-1], self.feature_size, self.feature_size)
-#         return self.deconv(x)
-
 
 class Decoder(nn.Module):
     def __init__(self, z_dim, n_channel):
@@ -100,11 +74,9 @@ class AutoEncoder(nn.Module):
 
         channels = [n_channel, 8, 16, 32]
         self.encoder = Encoder(z_dim, image_size, channels)
-        # self.decoder = Decoder(z_dim, image_size, channels)
         self.decoder = Decoder(z_dim, n_channel)
 
     def forward(self, x):
         image_feature = self.encoder(x)
-        # image_hat = self.decoder(image_feature)
         image_hat = self.decoder(image_feature, self.image_size)
         return image_hat, image_feature
